@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RDDL ESP32-C6 Web-Flasher</title>
+  <meta name="description" content="Firmware aus dem Web auf einen ESP32-C6 flashen – im modernen Dark-Neon-Stil mit Glassmorphism." />
+  <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin />
+  <link rel="stylesheet" as="style" onload="this.rel='stylesheet'" href="https://fonts.googleapis.com/css2?display=swap&family=Inter:wght@400;600;800;900&family=Noto+Sans:wght@400;600;800;900" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script type="module" src="https://unpkg.com/esp-web-tools/dist/web/install-button.js"></script>
+  <style>
+    :root{
+      --bg-1:#0B1020;
+      --bg-2:#0F1B3D;
+      --el-blue:#3B82F6;
+      --el-cyan:#06B6D4;
+      --el-violet:#8B5CF6;
+      --el-mint:#34D399;
+      --el-yellow:#FACC15;
+    }
+    body { 
+      background: radial-gradient(1200px 800px at 10% -10%, rgba(59,130,246,.18), transparent 60%),
+                  radial-gradient(900px 600px at 95% 10%, rgba(6,182,212,.14), transparent 60%),
+                  linear-gradient(160deg, var(--bg-1), var(--bg-2));
+      font-family: Inter, "Noto Sans", system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+    .glass { background: rgba(255,255,255,.06); backdrop-filter: saturate(1.2) blur(8px); }
+    .ring-soft { box-shadow: 0 0 0 1px rgba(148,163,184,.18) inset; }
+    .neon:hover { box-shadow:
+      0 0 0 1px rgba(99,102,241,.5) inset,
+      0 0 24px rgba(59,130,246,.25),
+      0 0 48px rgba(139,92,246,.18); transform: translateY(-2px);
+    }
+    .transition-base { transition: all .25s ease; }
+    .grad-text { background: linear-gradient(90deg, var(--el-blue), var(--el-cyan), var(--el-violet));
+                 -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .btn-primary { background: linear-gradient(135deg, var(--el-blue), var(--el-violet));
+                   color: white; box-shadow: 0 10px 30px rgba(59,130,246,.25); }
+    .btn-primary:hover{ filter: brightness(1.07); box-shadow: 0 14px 36px rgba(59,130,246,.35); }
+    .btn-ghost { border:1px solid rgba(255,255,255,.22); color:#E5E7EB; }
+    .btn-ghost:hover{ border-color: rgba(255,255,255,.35); color:white; }
+    .icon{ width:1.1rem; height:1.1rem; stroke:#fff; fill:none; stroke-width:2; filter: drop-shadow(0 0 8px rgba(255,255,255,.15)); }
+    .underlined::after{ content:""; display:block; width:64px; height:3px; margin-top:.6rem;
+      background: linear-gradient(90deg, var(--el-yellow), var(--el-mint)); border-radius:999px; }
+    .grid-overlay { position: absolute; inset: -10%; pointer-events:none; opacity:.09; mix-blend:screen;
+      background-image: linear-gradient(to right, #fff 1px, transparent 1px),
+                        linear-gradient(to bottom, #fff 1px, transparent 1px);
+      background-size: 30px 30px; animation: pan 18s linear infinite; }
+    @keyframes pan { from{ transform: translateX(0) } to{ transform: translateX(-30px) } }
+    esp-web-install-button { display:inline-block; }
+    esp-web-install-button::part(button) {
+      background: linear-gradient(135deg, var(--el-blue), var(--el-violet));
+      color:#fff; border:none; border-radius:0.75rem; padding:0.75rem 1rem;
+      box-shadow: 0 10px 30px rgba(59,130,246,.25);
+      cursor:pointer; font-weight:700;
+    }
+    esp-web-install-button::part(button):hover { filter:brightness(1.07); box-shadow:0 14px 36px rgba(59,130,246,.35); }
+  </style>
+</head>
+<body class="text-slate-100 antialiased">
+
+  <!-- NAV -->
+  <nav class="sticky top-0 z-40 backdrop-blur bg-[#0c1329]/70">
+    <div class="mx-auto max-w-7xl px-6">
+      <div class="flex h-16 items-center justify-between">
+        <div class="flex items-center gap-3">
+          <span class="inline-block h-2.5 w-2.5 rounded-full bg-[var(--el-cyan)] shadow-[0_0_16px_rgba(6,182,212,.65)]"></span>
+          <span class="text-sm font-semibold tracking-wide">RDDL ESP32-C6 Web-Flasher</span>
+        </div>
+        <div class="hidden gap-6 text-sm md:flex">
+          <a href="#start" class="hover:text-white/90">Start</a>
+          <a href="#anleitung" class="hover:text-white/90">Anleitung</a>
+          <a href="#flash" class="hover:text-white/90">Flashen</a>
+          <a href="#faq" class="hover:text-white/90">FAQ</a>
+        </div>
+        <a href="#flash" class="hidden rounded-xl px-4 py-2 text-sm font-semibold btn-primary md:inline-block transition-base">Jetzt flashen</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <header id="start" class="relative overflow-hidden">
+    <div class="grid-overlay"></div>
+    <div class="mx-auto max-w-7xl px-6 pt-14 pb-12">
+      <div class="grid items-center gap-10 md:grid-cols-2">
+        <div>
+          <h1 class="text-4xl md:text-6xl font-extrabold leading-[1.05]">
+            <span class="grad-text">ESP32-C6</span> im Browser flashen
+          </h1>
+          <p class="mt-4 text-lg text-slate-300">
+            Lade eine <b>Firmware-BIN</b> per URL und schreibe sie via <b>WebSerial</b> direkt auf dein Gerät – ohne zusätzliche Tools.
+          </p>
+          <div class="mt-7 flex flex-wrap items-center gap-3">
+            <a href="#flash" class="btn-primary rounded-xl px-5 py-3 text-sm font-semibold transition-base">Firmware flashen</a>
+            <a href="#anleitung" class="rounded-xl px-5 py-3 text-sm font-semibold btn-ghost transition-base">Kurz-Anleitung</a>
+          </div>
+          <div class="mt-6 flex flex-wrap gap-3 text-xs">
+            <span class="glass ring-soft rounded-lg px-2.5 py-1">WebSerial</span>
+            <span class="glass ring-soft rounded-lg px-2.5 py-1">ESP Web Tools</span>
+            <span class="glass ring-soft rounded-lg px-2.5 py-1">Local-first</span>
+            <span class="glass ring-soft rounded-lg px-2.5 py-1">RDDL</span>
+          </div>
+        </div>
+        <div>
+          <div class="glass ring-soft neon rounded-2xl p-6 transition-base">
+            <div class="grid grid-cols-2 gap-4">
+              <div class="rounded-xl glass ring-soft p-4">
+                <p class="text-xs text-slate-300">Verbindung</p>
+                <p class="mt-1 text-2xl font-bold">USB</p>
+                <p class="text-xs text-slate-400">Browser mit WebSerial</p>
+              </div>
+              <div class="rounded-xl glass ring-soft p-4">
+                <p class="text-xs text-slate-300">Chip</p>
+                <p class="mt-1 text-2xl font-bold text-emerald-300">ESP32-C6</p>
+                <p class="text-xs text-slate-400">RISC-V • Wi-Fi 6 • BLE</p>
+              </div>
+              <div class="rounded-xl glass ring-soft p-4">
+                <p class="text-xs text-slate-300">Manifest</p>
+                <p class="mt-1 text-2xl font-bold">auto</p>
+                <p class="text-xs text-slate-400">aus BIN-URL</p>
+              </div>
+              <div class="rounded-xl glass ring-soft p-4">
+                <p class="text-xs text-slate-300">Modus</p>
+                <p class="mt-1 text-2xl font-bold">Neu-Flash</p>
+                <p class="text-xs text-slate-400">inkl. Erase-Prompt</p>
+              </div>
+            </div>
+            <div class="mt-5 flex items-center justify-between text-xs text-slate-400">
+              <span class="flex items-center gap-2">
+                <svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+                Ein-Klick Flashing
+              </span>
+              <span class="flex items-center gap-2">
+                <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+                Sicher & lokal
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ANLEITUNG / STEPS -->
+  <section id="anleitung" class="mx-auto max-w-7xl px-6 py-12">
+    <h2 class="text-2xl md:text-3xl font-bold underlined">Kurz-Anleitung</h2>
+    <div class="mt-6 grid gap-6 lg:grid-cols-2">
+      <div class="space-y-4">
+        <div class="flex items-center gap-4 glass ring-soft rounded-2xl p-4">
+          <div class="shrink-0 rounded-lg bg-white/10 p-3">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M7 2v11a5 5 0 0 0 10 0V2"/><path d="M5 22h14"/></svg>
+          </div>
+          <div>
+            <p class="text-base font-semibold">1. Gerät verbinden</p>
+            <p class="text-sm text-slate-300">ESP32-C6 via USB anschließen. Unterstützte Browser: Chrome, Edge, Opera, Arc (WebSerial).</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-4 glass ring-soft rounded-2xl p-4">
+          <div class="shrink-0 rounded-lg bg-white/10 p-3">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+          </div>
+          <div>
+            <p class="text-base font-semibold">2. BIN-URL einfügen</p>
+            <p class="text-sm text-slate-300">Öffentliche URL zur <code>.bin</code> eintragen (z. B. GitHub-Release, CDN, eigener Host).</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-4 glass ring-soft rounded-2xl p-4">
+          <div class="shrink-0 rounded-lg bg-white/10 p-3">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 12l5 5 5-5"/></svg>
+          </div>
+          <div>
+            <p class="text-base font-semibold">3. Manifest erzeugen</p>
+            <p class="text-sm text-slate-300">Ein Klick auf <i>Manifest erstellen</i> generiert ein temporäres ESP-Web-Tools-Manifest aus der URL.</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-4 glass ring-soft rounded-2xl p-4">
+          <div class="shrink-0 rounded-lg bg-white/10 p-3">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+          </div>
+          <div>
+            <p class="text-base font-semibold">4. Flashen</p>
+            <p class="text-sm text-slate-300">Mit dem erscheinenden Button wird die Verbindung aufgebaut und die Firmware geschrieben.</p>
+          </div>
+        </div>
+      </div>
+      <div class="glass ring-soft rounded-2xl p-6">
+        <h3 class="text-base font-semibold">Hinweise</h3>
+        <ul class="mt-2 space-y-2 text-sm text-slate-300">
+          <li>• Geräte ggf. mit <i>BOOT</i>/<i>EN</i> in Flash-Modus setzen (je nach Board).</li>
+          <li>• Manifest nutzt Offset <code>0x10000</code> (65536) für App-BIN – wie üblich für ESP-Images.</li>
+          <li>• <b>Erase-Prompt</b> ist aktiv: Neuinstallation löscht vorherige Firmware-Daten.</li>
+          <li>• Alles läuft lokal im Browser; keine BIN wird hochgeladen.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- FLASH UI -->
+  <section id="flash" class="mx-auto max-w-7xl px-6 py-12">
+    <h2 class="text-2xl md:text-3xl font-bold underlined">Firmware flashen</h2>
+
+    <div class="mt-6 grid gap-6 md:grid-cols-3">
+      <!-- URL + WiFi Eingabe -->
+      <div class="md:col-span-2 glass ring-soft rounded-2xl p-6">
+        <label for="bin-url" class="block text-sm font-semibold">BIN-Datei URL</label>
+        <input id="bin-url" type="url" placeholder="https://example.com/firmware.bin"
+          class="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm 
+                 text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 
+                 focus:ring-sky-500" />
+
+        <!-- WiFi Name -->
+        <label for="wifi-ssid" class="mt-4 block text-sm font-semibold">WiFi Name (SSID)</label>
+        <input id="wifi-ssid" type="text" placeholder="MeinWLAN"
+          class="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm 
+                 text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 
+                 focus:ring-sky-500" />
+
+        <!-- WiFi Passwort -->
+        <label for="wifi-pass" class="mt-4 block text-sm font-semibold">WiFi Passwort</label>
+        <input id="wifi-pass" type="password" placeholder="••••••••"
+          class="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm 
+                 text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 
+                 focus:ring-sky-500" />
+
+        <div class="mt-4 flex flex-wrap items-center gap-3">
+          <button onclick="prepareFlash()" 
+            class="btn-primary rounded-xl px-5 py-3 text-sm font-semibold transition-base">
+            Manifest erstellen
+          </button>
+          <button onclick="clearManifest()" 
+            class="rounded-xl px-5 py-3 text-sm font-semibold btn-ghost transition-base">
+            Zurücksetzen
+          </button>
+        </div>
+        <p id="status" class="mt-3 text-xs text-slate-400">
+          Status: Bitte URL eingeben, WiFi Daten ausfüllen und Manifest erstellen.
+        </p>
+      </div>
+
+      <!-- Install Button / Actions -->
+      <div class="glass ring-soft rounded-2xl p-6">
+        <h3 class="text-base font-semibold">Aktion</h3>
+        <div class="mt-3" id="install-wrapper" style="display:none">
+          <esp-web-install-button id="install-btn"></esp-web-install-button>
+          <p class="mt-3 text-xs text-slate-400">Beim Klick öffnet sich der WebSerial-Dialog.</p>
+        </div>
+        <div id="install-placeholder" class="mt-2 text-sm text-slate-400">
+          Installations-Button erscheint nach dem Erzeugen des Manifests.
+        </div>
+     
