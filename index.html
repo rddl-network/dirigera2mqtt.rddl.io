@@ -161,8 +161,8 @@
             <svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
           </div>
           <div>
-            <p class="text-base font-semibold">2. BIN-URL einfügen</p>
-            <p class="text-sm text-slate-300">Öffentliche URL zur <code>.bin</code> eintragen (z. B. GitHub-Release, CDN, eigener Host).</p>
+            <p class="text-base font-semibold">2. Wifi Credentials einfügen</p>
+            <p class="text-sm text-slate-300">Das RDDL <b>EnergyIntelligenceBridge</b> wird standarmäßig geladen. Die Wifi-Credentials werden direkt in das Image geschreiben, so dass sich das Gerät sofort verbinden kann.</p>
           </div>
         </div>
         <div class="flex items-center gap-4 glass ring-soft rounded-2xl p-4">
@@ -188,9 +188,8 @@
         <h3 class="text-base font-semibold">Hinweise</h3>
         <ul class="mt-2 space-y-2 text-sm text-slate-300">
           <li>• Geräte ggf. mit <i>BOOT</i>/<i>EN</i> in Flash-Modus setzen (je nach Board).</li>
-          <li>• Manifest nutzt Offset <code>0x10000</code> (65536) für App-BIN – wie üblich für ESP-Images.</li>
+          <li>• Manifest nutzt Offset <code>0x0</code> (0) für das gesamte Flash-Image.</li>
           <li>• <b>Erase-Prompt</b> ist aktiv: Neuinstallation löscht vorherige Firmware-Daten.</li>
-          <li>• Alles läuft lokal im Browser; keine BIN wird hochgeladen.</li>
         </ul>
       </div>
     </div>
@@ -203,11 +202,6 @@
     <div class="mt-6 grid gap-6 md:grid-cols-3">
       <!-- URL + WiFi Eingabe -->
       <div class="md:col-span-2 glass ring-soft rounded-2xl p-6">
-        <label for="bin-url" class="block text-sm font-semibold">BIN-Datei URL</label>
-        <input id="bin-url" type="url" placeholder="https://example.com/firmware.bin"
-          class="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm 
-                 text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 
-                 focus:ring-sky-500" />
 
         <!-- WiFi Name -->
         <label for="wifi-ssid" class="mt-4 block text-sm font-semibold">WiFi Name (SSID)</label>
@@ -224,18 +218,6 @@
                  focus:ring-sky-500" />
 
         <div class="mt-4 flex flex-wrap items-center gap-3">
-          <button onclick="prepareFlash()" 
-            class="btn-primary rounded-xl px-5 py-3 text-sm font-semibold transition-base">
-            Manifest erstellen
-          </button>
-          <button onclick="clearManifest()" 
-            class="rounded-xl px-5 py-3 text-sm font-semibold btn-ghost transition-base">
-            Zurücksetzen
-          </button>
-          <button onclick="downloadPatchedFirmware()" 
-            class="btn-primary rounded-xl px-5 py-3 text-sm font-semibold transition-base">
-            Firmware generieren & herunterladen
-          </button>
           <button onclick="flashPatchedFirmware()" 
             class="btn-primary rounded-xl px-5 py-3 text-sm font-semibold transition-base">
             Firmware generieren & flashen
