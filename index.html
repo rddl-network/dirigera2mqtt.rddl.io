@@ -247,40 +247,6 @@
 let currentFirmwareUrl = null;
 let currentManifestUrl = null;
 
-async function downloadPatchedFirmware() {
-  const ssid = document.getElementById('wifi-ssid').value;
-  const pwd = document.getElementById('wifi-pass').value;
-  const status = document.getElementById('status');
-  
-  if (!ssid || !pwd) {
-    status.textContent = 'Fehler: WiFi SSID und Passwort sind erforderlich.';
-    return;
-  }
-  
-  status.textContent = 'Firmware wird generiert...';
-  try {
-    const response = await fetch('https://testnet-dirigera2mqtt.rddl.io/firmware/esp32c6', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ssid, pwd })
-    });
-    if (!response.ok) throw new Error('Fehler beim Abrufen der Firmware');
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'mywifi-firmware.bin';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    // Clean up URL after download
-    setTimeout(() => window.URL.revokeObjectURL(url), 1000);
-    status.textContent = 'Firmware erfolgreich heruntergeladen.';
-  } catch (e) {
-    status.textContent = 'Fehler: ' + e.message;
-  }
-}
-
 async function flashPatchedFirmware() {
   const ssid = document.getElementById('wifi-ssid').value;
   const pwd = document.getElementById('wifi-pass').value;
@@ -379,87 +345,6 @@ async function flashPatchedFirmware() {
     console.error('Flash-Fehler:', e);
     status.textContent = 'Fehler: ' + e.message;
   }
-}
-
-async function prepareFlash() {
-  const binUrl = document.getElementById('bin-url').value;
-  const status = document.getElementById('status');
-  
-  if (!binUrl) {
-    status.textContent = 'Fehler: BIN-URL ist erforderlich.';
-    return;
-  }
-  
-  status.textContent = 'Manifest wird erstellt...';
-  
-  try {
-    // Clean up previous URLs
-    if (currentManifestUrl) {
-      window.URL.revokeObjectURL(currentManifestUrl);
-      currentManifestUrl = null;
-    }
-    
-    // Create manifest for external BIN URL
-    const manifest = {
-      name: 'ESP32-C6 Firmware',
-      version: '1.0.0',
-      home_assistant_domain: 'esphome',
-      new_install_skip_erase: false,
-      new_install_prompt_erase: true,
-      builds: [
-        {
-          chipFamily: 'ESP32-C6',
-          parts: [
-            {
-              path: binUrl,
-              offset: 0x0
-            }
-          ]
-        }
-      ]
-    };
-    
-    console.log('Generated manifest:', JSON.stringify(manifest, null, 2));
-    
-    const manifestBlob = new Blob([JSON.stringify(manifest, null, 2)], { 
-      type: 'application/json' 
-    });
-    currentManifestUrl = window.URL.createObjectURL(manifestBlob);
-    
-    const installBtn = document.getElementById('install-btn');
-    installBtn.setAttribute('manifest', currentManifestUrl);
-    
-    document.getElementById('install-wrapper').style.display = '';
-    document.getElementById('install-placeholder').style.display = 'none';
-    
-    status.textContent = 'Manifest erstellt. Bereit zum Flashen.';
-    
-  } catch (e) {
-    console.error('Manifest-Fehler:', e);
-    status.textContent = 'Fehler beim Erstellen des Manifests: ' + e.message;
-  }
-}
-
-function clearManifest() {
-  // Clean up URLs
-  if (currentFirmwareUrl) {
-    window.URL.revokeObjectURL(currentFirmwareUrl);
-    currentFirmwareUrl = null;
-  }
-  if (currentManifestUrl) {
-    window.URL.revokeObjectURL(currentManifestUrl);
-    currentManifestUrl = null;
-  }
-  
-  // Reset UI
-  document.getElementById('install-wrapper').style.display = 'none';
-  document.getElementById('install-placeholder').style.display = '';
-  document.getElementById('status').textContent = 'Status: Bitte URL eingeben, WiFi Daten ausfüllen und Manifest erstellen.';
-  
-  // Clear form fields
-  document.getElementById('bin-url').value = '';
-  document.getElementById('wifi-ssid').value = '';
-  document.getElementById('wifi-pass').value = '';
 }
 
 // Clean up URLs when page is unloaded
