@@ -161,8 +161,8 @@
             <svg class="icon" viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
           </div>
           <div>
-            <p class="text-base font-semibold">2. BIN-URL einfügen</p>
-            <p class="text-sm text-slate-300">Öffentliche URL zur <code>.bin</code> eintragen (z. B. GitHub-Release, CDN, eigener Host).</p>
+            <p class="text-base font-semibold">2. Wifi Credentials einfügen</p>
+            <p class="text-sm text-slate-300">Das RDDL <b>EnergyIntelligenceBridge</b> wird standarmäßig geladen. Die Wifi-Credentials werden direkt in das Image geschreiben, so dass sich das Gerät sofort verbinden kann.</p>
           </div>
         </div>
         <div class="flex items-center gap-4 glass ring-soft rounded-2xl p-4">
@@ -188,9 +188,8 @@
         <h3 class="text-base font-semibold">Hinweise</h3>
         <ul class="mt-2 space-y-2 text-sm text-slate-300">
           <li>• Geräte ggf. mit <i>BOOT</i>/<i>EN</i> in Flash-Modus setzen (je nach Board).</li>
-          <li>• Manifest nutzt Offset <code>0x10000</code> (65536) für App-BIN – wie üblich für ESP-Images.</li>
+          <li>• Manifest nutzt Offset <code>0x0</code> (0) für das gesamte Flash-Image.</li>
           <li>• <b>Erase-Prompt</b> ist aktiv: Neuinstallation löscht vorherige Firmware-Daten.</li>
-          <li>• Alles läuft lokal im Browser; keine BIN wird hochgeladen.</li>
         </ul>
       </div>
     </div>
@@ -203,11 +202,6 @@
     <div class="mt-6 grid gap-6 md:grid-cols-3">
       <!-- URL + WiFi Eingabe -->
       <div class="md:col-span-2 glass ring-soft rounded-2xl p-6">
-        <label for="bin-url" class="block text-sm font-semibold">BIN-Datei URL</label>
-        <input id="bin-url" type="url" placeholder="https://example.com/firmware.bin"
-          class="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm 
-                 text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 
-                 focus:ring-sky-500" />
 
         <!-- WiFi Name -->
         <label for="wifi-ssid" class="mt-4 block text-sm font-semibold">WiFi Name (SSID)</label>
@@ -224,13 +218,9 @@
                  focus:ring-sky-500" />
 
         <div class="mt-4 flex flex-wrap items-center gap-3">
-          <button onclick="prepareFlash()" 
+          <button onclick="flashPatchedFirmware()" 
             class="btn-primary rounded-xl px-5 py-3 text-sm font-semibold transition-base">
-            Manifest erstellen
-          </button>
-          <button onclick="clearManifest()" 
-            class="rounded-xl px-5 py-3 text-sm font-semibold btn-ghost transition-base">
-            Zurücksetzen
+            Firmware generieren & flashen
           </button>
         </div>
         <p id="status" class="mt-3 text-xs text-slate-400">
@@ -248,4 +238,125 @@
         <div id="install-placeholder" class="mt-2 text-sm text-slate-400">
           Installations-Button erscheint nach dem Erzeugen des Manifests.
         </div>
-     
+      </div>
+    </div>
+  </section>
+
+<script>
+// Global variables to store blob URLs for cleanup
+let currentFirmwareUrl = null;
+let currentManifestUrl = null;
+
+async function flashPatchedFirmware() {
+  const ssid = document.getElementById('wifi-ssid').value;
+  const pwd = document.getElementById('wifi-pass').value;
+  const status = document.getElementById('status');
+  
+  if (!ssid || !pwd) {
+    status.textContent = 'Fehler: WiFi SSID und Passwort sind erforderlich.';
+    return;
+  }
+  
+  status.textContent = 'Firmware wird generiert und geflasht...';
+  
+  try {
+    // Clean up previous URLs
+    if (currentFirmwareUrl) {
+      window.URL.revokeObjectURL(currentFirmwareUrl);
+      currentFirmwareUrl = null;
+    }
+    if (currentManifestUrl) {
+      window.URL.revokeObjectURL(currentManifestUrl);
+      currentManifestUrl = null;
+    }
+    
+    const response = await fetch('https://testnet-dirigera2mqtt.rddl.io/firmware/esp32c6', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ssid, pwd })
+    });
+    
+    if (!response.ok) throw new Error('Fehler beim Abrufen der Firmware');
+    
+    // Debug: check response status and content-type
+    console.log('Response status:', response.status);
+    console.log('Content-Type:', response.headers.get('content-type'));
+    
+    const blob = await response.blob();
+    console.log('Blob size:', blob.size, 'Blob type:', blob.type);
+    
+    // Check if blob is suspiciously small
+    if (blob.size < 100) {
+      alert('Firmware blob is suspiciously small. Check server response.');
+      return;
+    }
+    
+    currentFirmwareUrl = window.URL.createObjectURL(blob);
+    
+    // Create manifest for ESP Web Tools with corrected settings
+    const manifest = {
+      name: 'EnergyIntelligenceBridge',
+      version: '1.0.0',
+      home_assistant_domain: 'esphome',
+      new_install_skip_erase: false,
+      new_install_prompt_erase: true,
+      builds: [
+        {
+          chipFamily: 'ESP32-C6',
+          parts: [
+            {
+              path: currentFirmwareUrl,
+              offset: 0x0
+            }
+          ]
+        }
+      ]
+    };
+    
+    // Debug: Log the manifest
+    console.log('Generated manifest:', JSON.stringify(manifest, null, 2));
+    
+    // Create manifest Blob URL
+    const manifestBlob = new Blob([JSON.stringify(manifest, null, 2)], { 
+      type: 'application/json' 
+    });
+    currentManifestUrl = window.URL.createObjectURL(manifestBlob);
+    
+    const installBtn = document.getElementById('install-btn');
+    installBtn.setAttribute('manifest', currentManifestUrl);
+    
+    // Show install button
+    document.getElementById('install-wrapper').style.display = '';
+    document.getElementById('install-placeholder').style.display = 'none';
+    
+    // Auto-click after short delay
+    setTimeout(() => {
+      try {
+        installBtn.click();
+      } catch (clickError) {
+        console.error('Fehler beim automatischen Klick:', clickError);
+        status.textContent = 'Firmware bereit. Bitte manuell auf "Install" klicken.';
+      }
+    }, 500);
+    
+    status.textContent = 'Firmware bereit zum Flashen. Bitte WebSerial-Dialog bestätigen.';
+    
+  } catch (e) {
+    console.error('Flash-Fehler:', e);
+    status.textContent = 'Fehler: ' + e.message;
+  }
+}
+
+// Clean up URLs when page is unloaded
+window.addEventListener('beforeunload', () => {
+  if (currentFirmwareUrl) {
+    window.URL.revokeObjectURL(currentFirmwareUrl);
+  }
+  if (currentManifestUrl) {
+    window.URL.revokeObjectURL(currentManifestUrl);
+  }
+});
+</script>
+
+</body>
+</html>
