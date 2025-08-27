@@ -217,6 +217,27 @@
                  text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 
                  focus:ring-sky-500" />
 
+        <!-- Dirigera JWT Token (optional) -->
+        <label for="dir-auth-token" class="mt-4 block text-sm font-semibold">Dirigera JWT Token (optional)</label>
+        <input id="dir-auth-token" type="text" placeholder="eyJhbGciOi..."
+          class="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm 
+                 text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 
+                 focus:ring-sky-500" />
+
+        <!-- Dirigera URI (optional) -->
+        <label for="dir-uri" class="mt-4 block text-sm font-semibold">Dirigera URI (optional)</label>
+        <input id="dir-uri" type="text" placeholder="http://dirigera.local"
+          class="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm 
+                 text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 
+                 focus:ring-sky-500" />
+
+        <!-- Liquid Address (optional) -->
+        <label for="liquid-address" class="mt-4 block text-sm font-semibold">Liquid Adresse (optional)</label>
+        <input id="liquid-address" type="text" placeholder="liquid1..."
+          class="mt-2 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm 
+                 text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 
+                 focus:ring-sky-500" />
+
         <div class="mt-4 flex flex-wrap items-center gap-3">
           <button onclick="flashPatchedFirmware()" 
             class="btn-primary rounded-xl px-5 py-3 text-sm font-semibold transition-base">
@@ -250,15 +271,18 @@ let currentManifestUrl = null;
 async function flashPatchedFirmware() {
   const ssid = document.getElementById('wifi-ssid').value;
   const pwd = document.getElementById('wifi-pass').value;
+  const dirAuthToken = document.getElementById('dir-auth-token').value;
+  const dirURI = document.getElementById('dir-uri').value;
+  const liquidAddress = document.getElementById('liquid-address').value;
   const status = document.getElementById('status');
-  
+
   if (!ssid || !pwd) {
     status.textContent = 'Fehler: WiFi SSID und Passwort sind erforderlich.';
     return;
   }
-  
+
   status.textContent = 'Firmware wird generiert und geflasht...';
-  
+
   try {
     // Clean up previous URLs
     if (currentFirmwareUrl) {
@@ -269,30 +293,39 @@ async function flashPatchedFirmware() {
       window.URL.revokeObjectURL(currentManifestUrl);
       currentManifestUrl = null;
     }
-    
+
+    // Build request object with optional fields
+    const requestBody = {
+      ssid,
+      pwd
+    };
+    if (liquidAddress) requestBody.liquid_address = liquidAddress;
+    if (dirAuthToken) requestBody.dir_auth_token = dirAuthToken;
+    if (dirURI) requestBody.dir_uri = dirURI;
+
     const response = await fetch('https://testnet-dirigera2mqtt.rddl.io/firmware/esp32c6', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ssid, pwd })
+      body: JSON.stringify(requestBody)
     });
-    
+
     if (!response.ok) throw new Error('Fehler beim Abrufen der Firmware');
-    
+
     // Debug: check response status and content-type
     console.log('Response status:', response.status);
     console.log('Content-Type:', response.headers.get('content-type'));
-    
+
     const blob = await response.blob();
     console.log('Blob size:', blob.size, 'Blob type:', blob.type);
-    
+
     // Check if blob is suspiciously small
     if (blob.size < 100) {
       alert('Firmware blob is suspiciously small. Check server response.');
       return;
     }
-    
+
     currentFirmwareUrl = window.URL.createObjectURL(blob);
-    
+
     // Create manifest for ESP Web Tools with corrected settings
     const manifest = {
       name: 'EnergyIntelligenceBridge',
@@ -312,23 +345,23 @@ async function flashPatchedFirmware() {
         }
       ]
     };
-    
+
     // Debug: Log the manifest
     console.log('Generated manifest:', JSON.stringify(manifest, null, 2));
-    
+
     // Create manifest Blob URL
-    const manifestBlob = new Blob([JSON.stringify(manifest, null, 2)], { 
-      type: 'application/json' 
+    const manifestBlob = new Blob([JSON.stringify(manifest, null, 2)], {
+      type: 'application/json'
     });
     currentManifestUrl = window.URL.createObjectURL(manifestBlob);
-    
+
     const installBtn = document.getElementById('install-btn');
     installBtn.setAttribute('manifest', currentManifestUrl);
-    
+
     // Show install button
     document.getElementById('install-wrapper').style.display = '';
     document.getElementById('install-placeholder').style.display = 'none';
-    
+
     // Auto-click after short delay
     setTimeout(() => {
       try {
@@ -338,9 +371,9 @@ async function flashPatchedFirmware() {
         status.textContent = 'Firmware bereit. Bitte manuell auf "Install" klicken.';
       }
     }, 500);
-    
+
     status.textContent = 'Firmware bereit zum Flashen. Bitte WebSerial-Dialog bestätigen.';
-    
+
   } catch (e) {
     console.error('Flash-Fehler:', e);
     status.textContent = 'Fehler: ' + e.message;
